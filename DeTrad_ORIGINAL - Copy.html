@@ -1,0 +1,1251 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Deriv Auto Trader V4 - Complete</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+      .status-connected {
+        color: #10b981;
+      }
+      .status-disconnected {
+        color: #ef4444;
+      }
+      .profit {
+        color: #10b981;
+      }
+      .loss {
+        color: #ef4444;
+      }
+      .info-badge {
+        background: linear-gradient(135deg, #3b82f6, #1e40af);
+        padding: 4px 12px;
+        border-radius: 6px;
+        font-size: 0.7rem;
+        font-weight: 600;
+      }
+      .toast-container {
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        z-index: 9999;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        max-width: 400px;
+      }
+      .toast {
+        background: linear-gradient(135deg, #1f2937, #111827);
+        color: white;
+        padding: 16px 20px;
+        border-radius: 12px;
+        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+        animation: slideIn 0.3s ease;
+        display: flex;
+        gap: 12px;
+      }
+      .toast.success {
+        border-left: 4px solid #10b981;
+      }
+      .toast.error {
+        border-left: 4px solid #ef4444;
+      }
+      .toast.warning {
+        border-left: 4px solid #f59e0b;
+      }
+      .toast.info {
+        border-left: 4px solid #3b82f6;
+      }
+      @keyframes slideIn {
+        from {
+          transform: translateX(450px);
+          opacity: 0;
+        }
+        to {
+          transform: translateX(0);
+          opacity: 1;
+        }
+      }
+      @keyframes pulse {
+        0%,
+        100% {
+          opacity: 1;
+        }
+        50% {
+          opacity: 0.5;
+        }
+      }
+      .pulse {
+        animation: pulse 2s ease-in-out infinite;
+      }
+      .glow {
+        box-shadow: 0 0 20px rgba(59, 130, 246, 0.5);
+      }
+      button:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
+      button:not(:disabled):hover {
+        transform: translateY(-2px);
+      }
+      .strategy-btn {
+        transition: all 0.3s ease;
+        border: 2px solid transparent;
+      }
+      .strategy-btn.active {
+        background: linear-gradient(135deg, #3b82f6, #1e40af);
+        border-color: #60a5fa;
+        box-shadow: 0 10px 30px rgba(59, 130, 246, 0.4);
+      }
+      @media (max-width: 768px) {
+        .toast-container {
+          right: 10px;
+          left: 10px;
+          max-width: none;
+        }
+      }
+    </style>
+  </head>
+  <body
+    class="bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 text-gray-100 min-h-screen p-4"
+  >
+    <div id="toastContainer" class="toast-container"></div>
+
+    <div class="max-w-7xl mx-auto">
+      <!-- Header -->
+      <div
+        class="bg-gradient-to-br from-gray-800 to-gray-900 rounded-2xl p-6 mb-4 shadow-2xl border border-gray-700"
+      >
+        <div class="flex justify-between items-center mb-4">
+          <h1
+            class="text-3xl font-bold"
+            style="
+              background: linear-gradient(135deg, #60a5fa, #3b82f6);
+              -webkit-background-clip: text;
+              -webkit-text-fill-color: transparent;
+            "
+          >
+            🤖 Deriv Auto Trader V4
+          </h1>
+          <div
+            class="flex items-center gap-3 bg-gray-900 px-4 py-2 rounded-lg border border-gray-700"
+          >
+            <span
+              id="connectionDot"
+              class="w-3 h-3 rounded-full bg-red-500"
+            ></span>
+            <span
+              id="connectionStatus"
+              class="text-base status-disconnected font-semibold"
+              >Disconnected</span
+            >
+          </div>
+        </div>
+
+        <div class="grid grid-cols-4 gap-4">
+          <div
+            class="bg-gradient-to-br from-blue-600 to-blue-800 p-4 rounded-xl shadow-lg"
+          >
+            <p class="text-xs text-blue-200">Balance</p>
+            <p id="balance" class="text-2xl font-bold">$0.00</p>
+          </div>
+          <div
+            class="bg-gradient-to-br from-purple-600 to-purple-800 p-4 rounded-xl shadow-lg"
+          >
+            <p class="text-xs text-purple-200">Session PnL</p>
+            <p id="totalPnl" class="text-2xl font-bold">$0.00</p>
+          </div>
+          <div
+            class="bg-gradient-to-br from-green-600 to-green-800 p-4 rounded-xl shadow-lg"
+          >
+            <p class="text-xs text-green-200">Win Rate</p>
+            <p id="winRate" class="text-2xl font-bold">0%</p>
+          </div>
+          <div
+            class="bg-gradient-to-br from-orange-600 to-orange-800 p-4 rounded-xl shadow-lg"
+          >
+            <p class="text-xs text-orange-200">Trades</p>
+            <p id="totalTrades" class="text-2xl font-bold">0</p>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-4 gap-3 mt-3">
+          <div class="bg-gray-700 bg-opacity-50 p-3 rounded-lg">
+            <p class="text-xs text-gray-400">Stake</p>
+            <p id="currentStakeDisplay" class="text-lg font-bold text-blue-400">
+              $0.00
+            </p>
+          </div>
+          <div class="bg-gray-700 bg-opacity-50 p-3 rounded-lg">
+            <p class="text-xs text-gray-400">M-Step</p>
+            <p
+              id="martingaleStepDisplay"
+              class="text-lg font-bold text-yellow-400"
+            >
+              0
+            </p>
+          </div>
+          <div class="bg-gray-700 bg-opacity-50 p-3 rounded-lg">
+            <p class="text-xs text-gray-400">Losses</p>
+            <p
+              id="consecutiveLossesDisplay"
+              class="text-lg font-bold text-red-400"
+            >
+              0
+            </p>
+          </div>
+          <div class="bg-gray-700 bg-opacity-50 p-3 rounded-lg">
+            <p class="text-xs text-gray-400">Remaining</p>
+            <p id="tradesRemaining" class="text-lg font-bold text-purple-400">
+              ∞
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <!-- API Connection -->
+      <div
+        class="bg-gradient-to-br from-gray-800 to-gray-900 rounded-2xl p-6 mb-4 shadow-2xl border border-gray-700"
+      >
+        <h2 class="text-xl font-bold mb-3">🔐 API Connection</h2>
+        <div
+          class="bg-yellow-900 bg-opacity-30 border border-yellow-600 rounded-lg p-3 mb-4 text-sm"
+        >
+          <p class="font-semibold mb-1">
+            ⚠️ Security: Never share your API token. Use demo accounts for
+            testing.
+          </p>
+        </div>
+        <div class="flex gap-2">
+          <input
+            type="password"
+            id="apiToken"
+            placeholder="Enter Deriv API Token"
+            class="flex-1 bg-gray-700 border border-gray-600 rounded-lg px-4 py-3 text-white"
+          />
+          <button
+            onclick="connectAPI()"
+            id="connectBtn"
+            class="bg-gradient-to-r from-blue-600 to-blue-700 px-6 py-3 rounded-lg font-semibold"
+          >
+            🔌 Connect
+          </button>
+          <button
+            onclick="disconnectAPI()"
+            class="bg-gradient-to-r from-red-600 to-red-700 px-6 py-3 rounded-lg font-semibold"
+          >
+            🔌 Disconnect
+          </button>
+        </div>
+      </div>
+
+      <!-- Market & Risk -->
+      <div class="grid lg:grid-cols-2 gap-4 mb-4">
+        <div
+          class="bg-gradient-to-br from-gray-800 to-gray-900 rounded-2xl p-6 shadow-2xl border border-gray-700"
+        >
+          <h2 class="text-xl font-bold mb-4">📊 Market Options</h2>
+          <div class="space-y-3">
+            <div>
+              <label class="block text-sm mb-2">Trade Type</label>
+              <select
+                id="tradeType"
+                class="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-3"
+              >
+                <option value="DIGITOVER">Over</option>
+                <option value="DIGITUNDER">Under</option>
+                <option value="DIGITMATCH">Match</option>
+                <option value="DIGITDIFF">Differs</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-sm mb-2">Market</label>
+              <select
+                id="market"
+                onchange="updateMarket()"
+                class="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-3"
+              >
+                <option value="R_10">Volatility 10</option>
+                <option value="R_25">Volatility 25</option>
+                <option value="R_50">Volatility 50</option>
+                <option value="R_75">Volatility 75</option>
+                <option value="R_100">Volatility 100</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-sm mb-2">Target Digit</label>
+              <input
+                type="number"
+                id="targetDigit"
+                min="0"
+                max="9"
+                value="5"
+                class="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-3"
+              />
+            </div>
+            <div>
+              <label class="block text-sm mb-2">Duration (Ticks)</label>
+              <input
+                type="number"
+                id="duration"
+                min="1"
+                max="10"
+                value="1"
+                class="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-3"
+              />
+            </div>
+          </div>
+        </div>
+
+        <div
+          class="bg-gradient-to-br from-gray-800 to-gray-900 rounded-2xl p-6 shadow-2xl border border-gray-700"
+        >
+          <h2 class="text-xl font-bold mb-4">⚠️ Risk Management</h2>
+          <div class="space-y-3">
+            <div>
+              <label class="block text-sm mb-2">Initial Stake ($)</label>
+              <input
+                type="number"
+                id="initialStake"
+                min="0.35"
+                step="0.01"
+                value="1"
+                class="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-3"
+              />
+            </div>
+            <div>
+              <label class="block text-sm mb-2">Max Loss ($)</label>
+              <input
+                type="number"
+                id="maxLoss"
+                min="1"
+                value="50"
+                class="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-3"
+              />
+            </div>
+            <div>
+              <label class="block text-sm mb-2">Max Profit ($)</label>
+              <input
+                type="number"
+                id="maxProfit"
+                min="1"
+                value="100"
+                class="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-3"
+              />
+            </div>
+            <div>
+              <label class="block text-sm mb-2">Max Trades (0=∞)</label>
+              <input
+                type="number"
+                id="maxTrades"
+                min="0"
+                value="0"
+                class="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-3"
+              />
+            </div>
+            <div
+              class="bg-gradient-to-r from-blue-900 to-blue-800 p-4 rounded-lg"
+            >
+              <label class="flex items-center gap-3">
+                <input
+                  type="checkbox"
+                  id="enableMartingale"
+                  checked
+                  class="w-5 h-5"
+                />
+                <span class="font-semibold">Enable Martingale</span>
+              </label>
+            </div>
+            <div>
+              <label class="block text-sm mb-2">Max Martingale Steps</label>
+              <input
+                type="number"
+                id="maxMartingaleSteps"
+                min="1"
+                max="10"
+                value="5"
+                class="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-3"
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Strategies -->
+      <div
+        class="bg-gradient-to-br from-gray-800 to-gray-900 rounded-2xl p-6 mb-4 shadow-2xl border border-gray-700"
+      >
+        <h2 class="text-xl font-bold mb-4">🎯 Trading Strategies</h2>
+        <div class="grid grid-cols-4 gap-3 mb-6">
+          <button
+            onclick="selectStrategy('switcher')"
+            id="stratBtn-switcher"
+            class="strategy-btn active p-4 rounded-xl"
+          >
+            <p class="font-bold">🔄 Switcher</p>
+            <p class="text-xs">Auto-rotate</p>
+          </button>
+          <button
+            onclick="selectStrategy('rebound')"
+            id="stratBtn-rebound"
+            class="strategy-btn bg-gray-700 p-4 rounded-xl"
+          >
+            <p class="font-bold">⚡ Rebound</p>
+            <p class="text-xs">Recovery</p>
+          </button>
+          <button
+            onclick="selectStrategy('matches')"
+            id="stratBtn-matches"
+            class="strategy-btn bg-gray-700 p-4 rounded-xl"
+          >
+            <p class="font-bold">🎯 Matches</p>
+            <p class="text-xs">Prime/Echo</p>
+          </button>
+          <button
+            onclick="selectStrategy('differs')"
+            id="stratBtn-differs"
+            class="strategy-btn bg-gray-700 p-4 rounded-xl"
+          >
+            <p class="font-bold">🛡️ Differs</p>
+            <p class="text-xs">Volatility</p>
+          </button>
+        </div>
+
+        <!-- Switcher Strategy -->
+        <div id="switcherStrategy" class="grid grid-cols-3 gap-4">
+          <div class="bg-gray-700 p-4 rounded-lg">
+            <label class="flex items-center gap-2 mb-2">
+              <input type="checkbox" id="enableDigitSwitch" class="w-5 h-5" />
+              <span class="font-semibold text-sm">Digit Switch</span>
+            </label>
+            <input
+              type="number"
+              id="digitSwitchInterval"
+              min="1"
+              value="1"
+              class="w-full bg-gray-600 rounded px-3 py-2"
+            />
+            <div class="mt-2 text-xs">
+              <p>Digit: <span id="currentDigitDisplay">5</span></p>
+            </div>
+          </div>
+          <div class="bg-gray-700 p-4 rounded-lg">
+            <label class="flex items-center gap-2 mb-2">
+              <input type="checkbox" id="enableMarketSwitch" class="w-5 h-5" />
+              <span class="font-semibold text-sm">Market Switch</span>
+            </label>
+            <input
+              type="number"
+              id="marketSwitchInterval"
+              min="1"
+              value="3"
+              class="w-full bg-gray-600 rounded px-3 py-2"
+            />
+          </div>
+          <div class="bg-gray-700 p-4 rounded-lg">
+            <label class="flex items-center gap-2 mb-2">
+              <input type="checkbox" id="enableOverUnderMode" class="w-5 h-5" />
+              <span class="font-semibold text-sm">Over/Under</span>
+            </label>
+            <input
+              type="number"
+              id="overUnderWinInterval"
+              min="1"
+              value="2"
+              class="w-full bg-gray-600 rounded px-3 py-2"
+            />
+          </div>
+        </div>
+
+        <!-- Rebound Strategy -->
+        <div id="reboundStrategy" class="hidden">
+          <p class="bg-orange-900 p-3 rounded mb-3">
+            DIFFERS → OVER on loss (2x stake)
+          </p>
+          <div class="grid grid-cols-2 gap-4">
+            <label class="flex items-center gap-2">
+              <input type="checkbox" id="reboundMarketSwitch" class="w-5 h-5" />
+              <span>Auto Market Switch</span>
+            </label>
+            <label class="flex items-center gap-2">
+              <input
+                type="checkbox"
+                id="reboundDurationSwitch"
+                class="w-5 h-5"
+              />
+              <span>Auto Duration Switch</span>
+            </label>
+          </div>
+        </div>
+
+        <!-- Matches Strategy -->
+        <div id="matchesStrategy" class="hidden">
+          <div class="grid grid-cols-3 gap-3 mb-3">
+            <button
+              onclick="selectMatchSubStrategy('prime')"
+              id="matchSub-prime"
+              class="strategy-btn active p-3 rounded"
+            >
+              Prime
+            </button>
+            <button
+              onclick="selectMatchSubStrategy('echo')"
+              id="matchSub-echo"
+              class="strategy-btn bg-gray-700 p-3 rounded"
+            >
+              Echo
+            </button>
+            <button
+              onclick="selectMatchSubStrategy('strike')"
+              id="matchSub-strike"
+              class="strategy-btn bg-gray-700 p-3 rounded"
+            >
+              Strike
+            </button>
+          </div>
+          <div id="primeMatchSettings" class="bg-gray-700 p-4 rounded">
+            <div class="grid grid-cols-2 gap-4">
+              <div>
+                <label><input type="checkbox" id="prime2" checked /> 2</label>
+                <label><input type="checkbox" id="prime3" checked /> 3</label>
+                <label><input type="checkbox" id="prime5" checked /> 5</label>
+                <label><input type="checkbox" id="prime7" checked /> 7</label>
+              </div>
+              <div>
+                <label class="block">Switch After Wins:</label>
+                <input
+                  type="number"
+                  id="primeSwitchWins"
+                  min="1"
+                  value="2"
+                  class="w-full bg-gray-600 rounded px-3 py-2"
+                />
+                <p class="text-xs mt-2">
+                  Current: <span id="currentPrime">2</span>
+                </p>
+              </div>
+            </div>
+          </div>
+          <div id="echoSettings" class="bg-gray-700 p-4 rounded hidden">
+            <label class="block">Window Size:</label>
+            <input
+              type="number"
+              id="echoWindowSize"
+              min="3"
+              value="5"
+              class="w-full bg-gray-600 rounded px-3 py-2"
+            />
+          </div>
+          <div id="strikeSettings" class="bg-gray-700 p-4 rounded hidden">
+            <label class="block">Start Digit:</label>
+            <input
+              type="number"
+              id="strikeStartDigit"
+              min="0"
+              max="9"
+              value="0"
+              class="w-full bg-gray-600 rounded px-3 py-2"
+            />
+          </div>
+        </div>
+
+        <!-- Differs Strategy -->
+        <div id="differsStrategy" class="hidden">
+          <div class="grid grid-cols-2 gap-3 mb-3">
+            <button
+              onclick="selectDiffersSubStrategy('volatility')"
+              id="differsSub-volatility"
+              class="strategy-btn active p-3 rounded"
+            >
+              Volatility
+            </button>
+            <button
+              onclick="selectDiffersSubStrategy('shield')"
+              id="differsSub-shield"
+              class="strategy-btn bg-gray-700 p-3 rounded"
+            >
+              Shield
+            </button>
+          </div>
+          <div id="volatilitySweepSettings" class="bg-gray-700 p-4 rounded">
+            <label class="block">Window Size:</label>
+            <input
+              type="number"
+              id="volWindowSize"
+              min="5"
+              value="10"
+              class="w-full bg-gray-600 rounded px-3 py-2"
+            />
+          </div>
+          <div id="shieldSettings" class="bg-gray-700 p-4 rounded hidden">
+            <label class="block">Trades Per Cycle:</label>
+            <input
+              type="number"
+              id="shieldTradesPerCycle"
+              min="3"
+              value="5"
+              class="w-full bg-gray-600 rounded px-3 py-2"
+            />
+          </div>
+        </div>
+      </div>
+
+      <!-- Controls -->
+      <div
+        class="bg-gradient-to-br from-gray-800 to-gray-900 rounded-2xl p-6 mb-4 shadow-2xl border border-gray-700"
+      >
+        <h2 class="text-xl font-bold mb-4">🎮 Controls</h2>
+        <div class="grid grid-cols-4 gap-3">
+          <button
+            onclick="startAutoTrading()"
+            id="startBtn"
+            class="bg-gradient-to-r from-green-600 to-green-700 px-6 py-4 rounded-xl font-bold"
+          >
+            🚀 Start
+          </button>
+          <button
+            onclick="stopAutoTrading()"
+            id="stopBtn"
+            disabled
+            class="bg-gradient-to-r from-red-600 to-red-700 px-6 py-4 rounded-xl font-bold"
+          >
+            ⛔ Stop
+          </button>
+          <button
+            onclick="executeSingleTrade()"
+            id="singleTradeBtn"
+            class="bg-gradient-to-r from-blue-600 to-blue-700 px-6 py-4 rounded-xl font-bold"
+          >
+            ⚡ Single
+          </button>
+          <button
+            onclick="resetSession()"
+            class="bg-gradient-to-r from-yellow-600 to-yellow-700 px-6 py-4 rounded-xl font-bold"
+          >
+            🔄 Reset
+          </button>
+        </div>
+      </div>
+
+      <!-- Trade History -->
+      <div
+        class="bg-gradient-to-br from-gray-800 to-gray-900 rounded-2xl p-6 shadow-2xl border border-gray-700"
+      >
+        <div class="flex justify-between items-center mb-4">
+          <h2 class="text-xl font-bold">📜 Trade History</h2>
+          <button
+            onclick="exportHistory()"
+            class="bg-purple-600 px-4 py-2 rounded-lg font-semibold"
+          >
+            📥 Export
+          </button>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="w-full text-sm">
+            <thead class="bg-gray-700">
+              <tr>
+                <th class="p-3 text-left">Time</th>
+                <th class="p-3 text-left">Type</th>
+                <th class="p-3 text-left">Market</th>
+                <th class="p-3 text-left">Target</th>
+                <th class="p-3 text-left">Stake</th>
+                <th class="p-3 text-left">Result</th>
+                <th class="p-3 text-left">PnL</th>
+              </tr>
+            </thead>
+            <tbody id="tradeHistory" class="divide-y divide-gray-700">
+              <tr>
+                <td colspan="7" class="p-8 text-center text-gray-500">
+                  No trades yet
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      let ws,
+        isConnected = false,
+        isTrading = false,
+        isProcessing = false,
+        balance = 0,
+        totalPnl = 0,
+        currentStake = 0,
+        martingaleStep = 0,
+        consecutiveLosses = 0;
+      let tradeHistory = [],
+        tickHistory = [],
+        lastDigits = [],
+        totalTrades = 0,
+        wins = 0,
+        losses = 0,
+        tradingInterval = null,
+        currentStrategy = "switcher";
+      let switcherState = {
+        digitWinCount: 0,
+        marketWinCount: 0,
+        currentDigit: 5,
+        currentMarketIndex: 0,
+        availableMarkets: ["R_10", "R_25", "R_50", "R_75", "R_100"],
+        overUnderWinCount: 0,
+        isOverMode: false,
+      };
+      let reboundState = {
+        isRecoveryMode: false,
+        durationIndex: 0,
+        durationCycle: [1, 2, 3],
+        currentDuration: 1,
+      };
+      let matchesState = {
+        primeNumbers: [2, 3, 5, 7],
+        activePrimes: [2, 3, 5, 7],
+        currentPrimeIndex: 0,
+        primeWinCount: 0,
+      };
+      let differsState = { volTargetDigit: null, volReady: false };
+      let currentMatchSubStrategy = "prime",
+        currentDiffersSubStrategy = "volatility";
+
+      function showToast(m, t = "info") {
+        const c = document.getElementById("toastContainer"),
+          d = document.createElement("div");
+        d.className = `toast ${t}`;
+        const i = { success: "✅", error: "❌", warning: "⚠️", info: "ℹ️" };
+        d.innerHTML = `<div class="text-2xl">${i[t]}</div><div><p class="font-bold text-sm uppercase">${t}</p><p class="text-sm text-gray-300">${m}</p></div>`;
+        c.appendChild(d);
+        setTimeout(() => d.remove(), 5000);
+      }
+
+      function updateConnectionStatus(c) {
+        isConnected = c;
+        document.getElementById("connectionStatus").textContent = c
+          ? "Connected"
+          : "Disconnected";
+        document.getElementById(
+          "connectionStatus"
+        ).className = `text-base font-semibold ${
+          c ? "status-connected" : "status-disconnected"
+        }`;
+        document.getElementById(
+          "connectionDot"
+        ).className = `w-3 h-3 rounded-full ${
+          c ? "bg-green-500 glow" : "bg-red-500"
+        }`;
+      }
+
+      function connectAPI() {
+        const t = document.getElementById("apiToken").value.trim();
+        if (!t) {
+          showToast("Enter API token", "error");
+          return;
+        }
+        showToast("Connecting...", "info");
+        ws = new WebSocket("wss://ws.derivws.com/websockets/v3?app_id=1089");
+        ws.onopen = () => ws.send(JSON.stringify({ authorize: t }));
+        ws.onmessage = (m) => handleWSMessage(JSON.parse(m.data));
+        ws.onerror = () => {
+          showToast("Connection error", "error");
+          updateConnectionStatus(false);
+        };
+        ws.onclose = () => {
+          updateConnectionStatus(false);
+          if (isTrading) {
+            stopAutoTrading();
+            showToast("Connection lost", "warning");
+          }
+        };
+      }
+
+      function disconnectAPI() {
+        if (ws) ws.close();
+        stopAutoTrading();
+        updateConnectionStatus(false);
+        showToast("Disconnected", "info");
+      }
+
+      function handleWSMessage(d) {
+        if (d.error) {
+          showToast(d.error.message, "error");
+          return;
+        }
+        if (d.msg_type === "authorize" && d.authorize) {
+          isConnected = true;
+          balance = parseFloat(d.authorize.balance);
+          updateConnectionStatus(true);
+          updateBalance();
+          subscribeToTicks();
+          showToast(`Connected! Balance: $${balance.toFixed(2)}`, "success");
+        } else if (d.msg_type === "tick") handleTick(d.tick);
+        else if (d.msg_type === "proposal") handleProposalResponse(d);
+        else if (d.msg_type === "buy") handleBuyResponse(d);
+        else if (d.msg_type === "proposal_open_contract")
+          handleContractUpdate(d);
+        else if (d.msg_type === "balance") {
+          balance = parseFloat(d.balance.balance);
+          updateBalance();
+        }
+      }
+
+      function subscribeToTicks() {
+        if (!ws || !isConnected) return;
+        ws.send(
+          JSON.stringify({
+            ticks: document.getElementById("market").value,
+            subscribe: 1,
+          })
+        );
+      }
+
+      function updateMarket() {
+        if (isConnected) {
+          subscribeToTicks();
+          lastDigits = [];
+          tickHistory = [];
+          showToast("Market changed", "info");
+        }
+      }
+
+      function handleTick(t) {
+        const d = parseInt(t.quote.toString().slice(-1));
+        lastDigits.push(d);
+        if (lastDigits.length > 200) lastDigits.shift();
+        tickHistory.push(t);
+        if (tickHistory.length > 200) tickHistory.shift();
+      }
+
+      function updateBalance() {
+        document.getElementById("balance").textContent = `$${balance.toFixed(
+          2
+        )}`;
+      }
+
+      function updatePnL() {
+        const e = document.getElementById("totalPnl");
+        e.textContent = `$${totalPnl.toFixed(2)}`;
+        e.className = `text-2xl font-bold ${totalPnl >= 0 ? "profit" : "loss"}`;
+      }
+
+      function updateWinRate() {
+        const r = totalTrades > 0 ? ((wins / totalTrades) * 100).toFixed(1) : 0;
+        document.getElementById("winRate").textContent = `${r}%`;
+        document.getElementById("totalTrades").textContent = totalTrades;
+        const m = parseInt(document.getElementById("maxTrades").value);
+        document.getElementById("tradesRemaining").textContent =
+          m > 0 ? Math.max(0, m - totalTrades) : "∞";
+      }
+
+      function updateCurrentStakeDisplay() {
+        document.getElementById(
+          "currentStakeDisplay"
+        ).textContent = `$${currentStake.toFixed(2)}`;
+        document.getElementById("martingaleStepDisplay").textContent =
+          martingaleStep;
+        document.getElementById("consecutiveLossesDisplay").textContent =
+          consecutiveLosses;
+      }
+
+      async function executeSingleTrade() {
+        if (!isConnected) {
+          showToast("Not connected", "error");
+          return;
+        }
+        if (isProcessing) {
+          showToast("Trade in progress", "warning");
+          return;
+        }
+        if (lastDigits.length < 5) {
+          showToast("Waiting for ticks", "warning");
+          return;
+        }
+        isProcessing = true;
+        document.getElementById("singleTradeBtn").disabled = true;
+        let tt = document.getElementById("tradeType").value,
+          td = parseInt(document.getElementById("targetDigit").value),
+          s =
+            currentStake ||
+            parseFloat(document.getElementById("initialStake").value);
+        if (currentStrategy === "rebound" && reboundState.isRecoveryMode) {
+          tt = "DIGITOVER";
+          s = parseFloat(document.getElementById("initialStake").value) * 2;
+        } else if (currentStrategy === "matches") {
+          tt = "DIGITMATCH";
+          if (currentMatchSubStrategy === "prime") td = getNextPrimeDigit();
+        } else if (currentStrategy === "differs") tt = "DIGITDIFF";
+        await executeTrade(tt, td, s);
+      }
+
+      async function executeTrade(tt, td, s) {
+        const m = document.getElementById("market").value,
+          d = parseInt(document.getElementById("duration").value),
+          pr = {
+            proposal: 1,
+            amount: s,
+            basis: "stake",
+            contract_type: tt,
+            currency: "USD",
+            duration: d,
+            duration_unit: "t",
+            symbol: m,
+          };
+        if (["DIGITOVER", "DIGITUNDER", "DIGITMATCH", "DIGITDIFF"].includes(tt))
+          pr.barrier = td.toString();
+        ws.send(JSON.stringify(pr));
+      }
+
+      function handleProposalResponse(d) {
+        if (d.error) {
+          showToast("Proposal failed", "error");
+          isProcessing = false;
+          document.getElementById("singleTradeBtn").disabled = false;
+          return;
+        }
+        if (d.proposal)
+          ws.send(
+            JSON.stringify({ buy: d.proposal.id, price: d.proposal.ask_price })
+          );
+      }
+
+      function handleBuyResponse(d) {
+        if (d.error) {
+          showToast("Buy failed", "error");
+          isProcessing = false;
+          document.getElementById("singleTradeBtn").disabled = false;
+          return;
+        }
+        ws.send(
+          JSON.stringify({
+            proposal_open_contract: 1,
+            contract_id: d.buy.contract_id,
+            subscribe: 1,
+          })
+        );
+      }
+
+      function handleContractUpdate(d) {
+        const c = d.proposal_open_contract;
+        if (c.status === "sold" || c.is_sold) {
+          const p = parseFloat(c.profit),
+            w = p > 0;
+          totalPnl += p;
+          totalTrades++;
+          if (w) {
+            wins++;
+            consecutiveLosses = 0;
+            showToast(`Won! +$${p.toFixed(2)}`, "success");
+            handleStrategyWin();
+          } else {
+            losses++;
+            consecutiveLosses++;
+            showToast(`Lost: $${p.toFixed(2)}`, "error");
+          }
+          updatePnL();
+          updateWinRate();
+          addTradeToHistory({
+            time: new Date().toLocaleTimeString(),
+            type: c.contract_type,
+            market: c.underlying,
+            target: c.barrier || "-",
+            stake: parseFloat(c.buy_price),
+            result: w ? "Win" : "Loss",
+            pnl: p,
+          });
+          handleMartingale(w);
+          isProcessing = false;
+          document.getElementById("singleTradeBtn").disabled = false;
+          const mt = parseInt(document.getElementById("maxTrades").value);
+          if (mt > 0 && totalTrades >= mt) {
+            stopAutoTrading();
+            showToast("Trade limit reached", "warning");
+            return;
+          }
+          if (
+            Math.abs(totalPnl) >=
+            parseFloat(document.getElementById("maxLoss").value)
+          ) {
+            stopAutoTrading();
+            showToast("Max loss reached", "error");
+            return;
+          }
+          if (
+            totalPnl >= parseFloat(document.getElementById("maxProfit").value)
+          ) {
+            stopAutoTrading();
+            showToast("Profit target! 🎉", "success");
+            return;
+          }
+        }
+      }
+
+      function handleMartingale(w) {
+        const e = document.getElementById("enableMartingale").checked,
+          i = parseFloat(document.getElementById("initialStake").value);
+        if (!e) {
+          currentStake = i;
+          martingaleStep = 0;
+          updateCurrentStakeDisplay();
+          return;
+        }
+        if (w) {
+          currentStake = i;
+          martingaleStep = 0;
+        } else {
+          const m = parseInt(
+            document.getElementById("maxMartingaleSteps").value
+          );
+          if (martingaleStep < m) {
+            currentStake = currentStake ? currentStake * 2 : i * 2;
+            martingaleStep++;
+          } else {
+            currentStake = i;
+            martingaleStep = 0;
+          }
+        }
+        updateCurrentStakeDisplay();
+      }
+
+      function addTradeToHistory(t) {
+        tradeHistory.unshift(t);
+        if (tradeHistory.length > 100) tradeHistory.pop();
+        document.getElementById("tradeHistory").innerHTML = tradeHistory
+          .map(
+            (t) =>
+              `<tr class="hover:bg-gray-700"><td class="p-3">${
+                t.time
+              }</td><td class="p-3 text-xs">${t.type}</td><td class="p-3">${
+                t.market
+              }</td><td class="p-3 text-center font-bold">${
+                t.target
+              }</td><td class="p-3">$${t.stake.toFixed(
+                2
+              )}</td><td class="p-3"><span class="px-3 py-1 rounded-full text-xs ${
+                t.result === "Win" ? "bg-green-600" : "bg-red-600"
+              }">${t.result}</span></td><td class="p-3 font-bold ${
+                t.pnl >= 0 ? "profit" : "loss"
+              }">${t.pnl >= 0 ? "+" : ""}$${t.pnl.toFixed(2)}</td></tr>`
+          )
+          .join("");
+      }
+
+      function startAutoTrading() {
+        if (!isConnected) {
+          showToast("Not connected", "error");
+          return;
+        }
+        if (lastDigits.length < 5) {
+          showToast("Waiting for ticks", "warning");
+          return;
+        }
+        isTrading = true;
+        document.getElementById("startBtn").disabled = true;
+        document.getElementById("stopBtn").disabled = false;
+        currentStake = parseFloat(
+          document.getElementById("initialStake").value
+        );
+        martingaleStep = 0;
+        showToast("Trading started! 🚀", "success");
+        tradingInterval = setInterval(() => {
+          if (isTrading && lastDigits.length >= 5 && !isProcessing)
+            executeSingleTrade();
+        }, 7000);
+      }
+
+      function stopAutoTrading() {
+        isTrading = false;
+        if (tradingInterval) {
+          clearInterval(tradingInterval);
+          tradingInterval = null;
+        }
+        document.getElementById("startBtn").disabled = false;
+        document.getElementById("stopBtn").disabled = true;
+        showToast("Trading stopped", "info");
+      }
+
+      function resetSession() {
+        if (!confirm("Reset session?")) return;
+        totalPnl = 0;
+        totalTrades = 0;
+        wins = 0;
+        losses = 0;
+        martingaleStep = 0;
+        consecutiveLosses = 0;
+        currentStake = parseFloat(
+          document.getElementById("initialStake").value
+        );
+        tradeHistory = [];
+        document.getElementById("tradeHistory").innerHTML =
+          '<tr><td colspan="7" class="p-8 text-center text-gray-500">No trades yet</td></tr>';
+        updatePnL();
+        updateWinRate();
+        updateCurrentStakeDisplay();
+        showToast("Session reset", "success");
+      }
+
+      function exportHistory() {
+        if (tradeHistory.length === 0) {
+          showToast("No history", "warning");
+          return;
+        }
+        const csv = [
+          ["Time", "Type", "Market", "Target", "Stake", "Result", "PnL"],
+          ...tradeHistory.map((t) => [
+            t.time,
+            t.type,
+            t.market,
+            t.target,
+            t.stake.toFixed(2),
+            t.result,
+            t.pnl.toFixed(2),
+          ]),
+        ]
+          .map((r) => r.join(","))
+          .join("\n");
+        const b = new Blob([csv], { type: "text/csv" }),
+          u = URL.createObjectURL(b),
+          a = document.createElement("a");
+        a.href = u;
+        a.download = `trades_${new Date().toISOString().split("T")[0]}.csv`;
+        a.click();
+        URL.revokeObjectURL(u);
+        showToast("Exported!", "success");
+      }
+
+      function selectStrategy(s) {
+        currentStrategy = s;
+        ["switcher", "rebound", "matches", "differs"].forEach((x) => {
+          document.getElementById(`stratBtn-${x}`).className =
+            x === s
+              ? "strategy-btn active p-4 rounded-xl"
+              : "strategy-btn bg-gray-700 p-4 rounded-xl";
+        });
+        document
+          .getElementById("switcherStrategy")
+          .classList.toggle("hidden", s !== "switcher");
+        document
+          .getElementById("reboundStrategy")
+          .classList.toggle("hidden", s !== "rebound");
+        document
+          .getElementById("matchesStrategy")
+          .classList.toggle("hidden", s !== "matches");
+        document
+          .getElementById("differsStrategy")
+          .classList.toggle("hidden", s !== "differs");
+      }
+
+      function selectMatchSubStrategy(s) {
+        currentMatchSubStrategy = s;
+        ["prime", "echo", "strike"].forEach((x) => {
+          document.getElementById(`matchSub-${x}`).className =
+            x === s
+              ? "strategy-btn active p-3 rounded"
+              : "strategy-btn bg-gray-700 p-3 rounded";
+        });
+        document
+          .getElementById("primeMatchSettings")
+          .classList.toggle("hidden", s !== "prime");
+        document
+          .getElementById("echoSettings")
+          .classList.toggle("hidden", s !== "echo");
+        document
+          .getElementById("strikeSettings")
+          .classList.toggle("hidden", s !== "strike");
+      }
+
+      function selectDiffersSubStrategy(s) {
+        currentDiffersSubStrategy = s;
+        ["volatility", "shield"].forEach((x) => {
+          document.getElementById(`differsSub-${x}`).className =
+            x === s
+              ? "strategy-btn active p-3 rounded"
+              : "strategy-btn bg-gray-700 p-3 rounded";
+        });
+        document
+          .getElementById("volatilitySweepSettings")
+          .classList.toggle("hidden", s !== "volatility");
+        document
+          .getElementById("shieldSettings")
+          .classList.toggle("hidden", s !== "shield");
+      }
+
+      function handleStrategyWin() {
+        if (currentStrategy === "switcher") {
+          const ed = document.getElementById("enableDigitSwitch").checked;
+          if (ed) {
+            switcherState.digitWinCount++;
+            if (
+              switcherState.digitWinCount >=
+              parseInt(document.getElementById("digitSwitchInterval").value)
+            ) {
+              switcherState.currentDigit =
+                (switcherState.currentDigit + 1) % 10;
+              document.getElementById("targetDigit").value =
+                switcherState.currentDigit;
+              switcherState.digitWinCount = 0;
+              showToast(`Digit: ${switcherState.currentDigit}`, "info");
+            }
+          }
+        } else if (
+          currentStrategy === "rebound" &&
+          reboundState.isRecoveryMode
+        ) {
+          reboundState.isRecoveryMode = false;
+          document.getElementById("tradeType").value = "DIGITDIFF";
+          currentStake = parseFloat(
+            document.getElementById("initialStake").value
+          );
+          martingaleStep = 0;
+          showToast("Recovery!", "success");
+        } else if (
+          currentStrategy === "matches" &&
+          currentMatchSubStrategy === "prime"
+        ) {
+          matchesState.primeWinCount++;
+          if (
+            matchesState.primeWinCount >=
+            parseInt(document.getElementById("primeSwitchWins").value)
+          ) {
+            getActivePrimes();
+            matchesState.currentPrimeIndex =
+              (matchesState.currentPrimeIndex + 1) %
+              matchesState.activePrimes.length;
+            matchesState.primeWinCount = 0;
+            updatePrimeDisplay();
+          }
+        }
+      }
+
+      function getActivePrimes() {
+        matchesState.activePrimes = [];
+        if (document.getElementById("prime2").checked)
+          matchesState.activePrimes.push(2);
+        if (document.getElementById("prime3").checked)
+          matchesState.activePrimes.push(3);
+        if (document.getElementById("prime5").checked)
+          matchesState.activePrimes.push(5);
+        if (document.getElementById("prime7").checked)
+          matchesState.activePrimes.push(7);
+        if (matchesState.activePrimes.length === 0)
+          matchesState.activePrimes = [2, 3, 5, 7];
+      }
+
+      function getNextPrimeDigit() {
+        getActivePrimes();
+        return matchesState.activePrimes[matchesState.currentPrimeIndex];
+      }
+
+      function updatePrimeDisplay() {
+        const e = document.getElementById("currentPrime");
+        if (e)
+          e.textContent =
+            matchesState.activePrimes[matchesState.currentPrimeIndex] || 2;
+      }
+
+      selectStrategy("switcher");
+      updateWinRate();
+      updateCurrentStakeDisplay();
+      showToast("Welcome to V4! 🚀", "success");
+    </script>
+  </body>
+</html>
