@@ -1,0 +1,9 @@
+[build]
+builder = "NIXPACKS"
+
+[deploy]
+startCommand = "cd backend && python main.py"
+healthcheckPath = "/api/health"
+healthcheckTimeout = 60
+restartPolicyType = "always"
+restartPolicyMaxRetries = 10
