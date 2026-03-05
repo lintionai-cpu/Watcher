@@ -72,9 +72,26 @@ app = FastAPI(title="Deriv Intelligence Platform", version="2.0.0", lifespan=lif
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True,
                    allow_methods=["*"], allow_headers=["*"])
 
-_FRONTEND = os.path.normpath(os.path.join(_BACKEND_DIR, "..", "frontend"))
-if os.path.isdir(_FRONTEND):
+from fastapi.responses import RedirectResponse
+
+# Try multiple candidate paths — works locally (Windows/Linux) and in Railway/Docker
+_FRONTEND_CANDIDATES = [
+    os.path.normpath(os.path.join(_BACKEND_DIR, "..", "frontend")),  # relative to backend/
+    os.path.join("/app", "frontend"),                                  # Railway: WORKDIR /app
+    os.path.join(os.getcwd(), "frontend"),                             # cwd-relative
+    os.path.join(os.getcwd(), "..", "frontend"),
+]
+_FRONTEND = next((p for p in _FRONTEND_CANDIDATES if os.path.isdir(p)), None)
+
+if _FRONTEND:
+    logger.info("Frontend found at: %s", _FRONTEND)
     app.mount("/app", StaticFiles(directory=_FRONTEND, html=True), name="frontend")
+else:
+    logger.warning("Frontend not found. Tried: %s", _FRONTEND_CANDIDATES)
+
+@app.get("/")
+async def root():
+    return RedirectResponse(url="/app/")
 
 
 # ── Request models ─────────────────────────────────────────────────────────────
