@@ -2,16 +2,20 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-# Install dependencies
+# Install dependencies first (cached layer)
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy all source
-COPY . .
+# Copy project files
+COPY backend/ ./backend/
+COPY frontend/ ./frontend/
 
-# Railway injects $PORT at runtime
+# Debug: confirm frontend is present at build time
+RUN echo "=== Build context check ===" && \
+    ls -la /app/ && \
+    ls -la /app/frontend/
+
 ENV PORT=8000
-
 EXPOSE 8000
 
-CMD ["sh", "-c", "cd backend && python main.py"]
+CMD ["sh", "-c", "cd /app/backend && python main.py"]
