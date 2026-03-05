@@ -1,8 +1,8 @@
 [build]
-builder = "NIXPACKS"
+builder = "DOCKERFILE"
+dockerfilePath = "Dockerfile"
 
 [deploy]
-startCommand = "cd backend && python3 main.py"
 healthcheckPath = "/api/health"
 healthcheckTimeout = 60
 restartPolicyType = "always"
